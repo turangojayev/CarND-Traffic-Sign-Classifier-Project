@@ -1,6 +1,8 @@
 import random
 from operator import itemgetter
 
+from augmentations import Rotator, HistogramEqualizer, Squeezer, Flipper
+# from preprocessing import rotate
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
@@ -9,9 +11,11 @@ import os
 import pandas as pd
 from sklearn.utils import shuffle
 
+from preprocessing import SQUEEZE
+
 EPOCHS = 150
 BATCH_SIZE = 256
-random.seed(1234)
+np.random.seed(12345)
 
 
 def get_data(path):
@@ -96,105 +100,100 @@ class MaxPool:
         return tf.nn.max_pool(input, ksize=[1, *self._kernel_size, 1], strides=[1, *self._strides, 1], padding='VALID')
 
 
-def model_gray(x, num_of_classes):
-    mean = 0
-    stddev = 0.1
+class Dense:
+    def __init__(self,
+                 output_size,
+                 input_size,
+                 mean=0,
+                 stddev=0.1,
+                 activation=tf.nn.relu):
+        self._weights = tf.Variable(tf.truncated_normal(shape=[input_size, output_size], mean=mean, stddev=stddev))
+        self._bias = tf.Variable(tf.zeros(output_size))
+        self._activation = activation
+
+    def __call__(self, input):
+        return tf.nn.relu(tf.add(tf.matmul(input, self._weights), self._bias))
+
+
+# TODO:check AlexNet => l1_maxpool = tf.nn.max_pool(l1_out, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='VALID')
+def build_model(x, num_of_classes, dense_keep_prob, conv_keep_prob):
     l1_depth = 16
-    # l1_filters = tf.Variable(tf.random_normal(shape=[5, 5, 1, l1_depth], mean=mean, stddev=stddev))
-    # l1_bias = tf.Variable(tf.zeros(l1_depth))
-    # l1_conv = tf.add(tf.nn.conv2d(x, l1_filters, strides=[1, 1, 1, 1], padding='VALID'), l1_bias)
-    # l1_out = tf.nn.relu(l1_conv)
-    # l1_maxpool = tf.nn.max_pool(l1_out, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
-
-    conv1 = ConvolutionalLayer(kernel_size=[5, 5], input_channels=1, filters=l1_depth)
-    l1_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
-    conv1_out = conv1(x)
-    print(conv1_out.shape)
-    l1_maxout = l1_maxpool(conv1_out)
-
-    # TODO:check AlexNet => l1_maxpool = tf.nn.max_pool(l1_out, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='VALID')
-    print(type(l1_maxout.shape))
-    print('maxout',l1_maxout.shape)
-
     l2_depth = 16
-    # l2_filters = tf.Variable(tf.random_normal(shape=[3, 3, l1_depth, l2_depth], mean=mean, stddev=stddev))
-    # l2_bias = tf.Variable(tf.zeros(l2_depth))
-    # l2_conv = tf.add(tf.nn.conv2d(l1_maxout, l2_filters, strides=[1, 1, 1, 1], padding='VALID'), l2_bias)
-    # l2_out = tf.nn.relu(l2_conv)
-    # l2_maxpool = tf.nn.max_pool(l2_out, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
-    conv2 = ConvolutionalLayer(kernel_size=[3, 3], input_channels=l1_depth, filters=l2_depth)
+    dense1_out_size = 128
+    dense2_out_size = 120
+    dense3_out_size = 86
+    input_channels = int(x.shape[3])
+
+    conv1 = ConvolutionalLayer(kernel_size=[5, 5], input_channels=input_channels, filters=l1_depth, mean=0, stddev=0.1)
+    l1_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
+    conv2 = ConvolutionalLayer(kernel_size=[3, 3], input_channels=l1_depth, filters=l2_depth, mean=0, stddev=0.1)
     l2_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
 
+    conv1_out = conv1(x)
+    l1_maxout = tf.nn.dropout(conv1_out, conv_keep_prob)
+    l1_maxout = l1_maxpool(l1_maxout)
+
     conv2_out = conv2(l1_maxout)
-    l2_maxout = l2_maxpool(conv2_out)
-    print(l2_maxout.shape)
+    l2_maxout = tf.nn.dropout(conv2_out, conv_keep_prob)
+    l2_maxout = l2_maxpool(l2_maxout)
 
     flattened = tf.contrib.layers.flatten(l2_maxout)
+
+    dense1 = Dense(dense1_out_size, int(flattened.shape[1]), mean=0, stddev=0.1)
+    dense1_out = dense1(flattened)
+    dense1_out = tf.nn.dropout(dense1_out, dense_keep_prob)
+
+    dense2 = Dense(dense2_out_size, dense1_out_size, mean=0, stddev=0.1)
+    dense2_out = dense2(dense1_out)
+    dense2_out = tf.nn.dropout(dense2_out, dense_keep_prob)
+
+    dense3 = Dense(dense3_out_size, dense2_out_size, mean=0, stddev=0.1)
+    dense3_out = dense3(dense2_out)
+    dense3_out = tf.nn.dropout(dense3_out, dense_keep_prob)
+
+    # dense3 = Dense(dense3_out_size, dense2_out_size, mean=0, stddev=0.1)
+    # dense3_out = dense3(dense2_out)
+
+    dense4 = Dense(num_of_classes, dense3_out_size, mean=0, stddev=0.1)
+    dense4_out = dense4(dense3_out)
+
+    print(conv1_out.shape)
+    print(l1_maxout.shape)
+    print(conv2_out.shape)
+    print(l2_maxout.shape)
     print(flattened.shape)
+    print(dense1_out.shape)
+    # print(dense2_out.shape)
+    print(dense3_out.shape)
+    print(dense4_out.shape)
 
-    l3_out_size = 128
-    l3_weights = tf.Variable(
-        tf.truncated_normal(shape=[int(flattened.shape[1]), l3_out_size], mean=mean, stddev=stddev))
-    l3_bias = tf.Variable(tf.zeros(l3_out_size))
-    l3_out = tf.nn.relu(tf.add(tf.matmul(flattened, l3_weights), l3_bias))
-    print(l3_out.shape)
-
-    l4_out_size = 120
-    l4_weights = tf.Variable(
-        tf.truncated_normal(shape=[l3_out_size, l4_out_size], mean=mean, stddev=stddev))
-    l4_bias = tf.Variable(tf.zeros(l4_out_size))
-    l4_out = tf.nn.relu(tf.add(tf.matmul(l3_out, l4_weights), l4_bias))
-    print(l4_out.shape)
-
-    l6_out_size = 86
-    l6_weights = tf.Variable(tf.random_normal(shape=[l4_out_size, l6_out_size], mean=mean, stddev=stddev))
-    l6_bias = tf.Variable(tf.zeros(l6_out_size))
-    l6_out = tf.nn.relu(tf.add(tf.matmul(l4_out, l6_weights), l6_bias))
-    print(l6_out.shape)
-
-    l5_weights = tf.Variable(tf.random_normal(shape=[l6_out_size, num_of_classes], mean=mean, stddev=stddev))
-    l5_bias = tf.Variable(tf.zeros(num_of_classes))
-    return tf.nn.relu(tf.add(tf.matmul(l6_out, l5_weights), l5_bias))
+    return dense4_out
 
 
-X_train = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_train)))
-X_valid = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_valid)))
-X_train = X_train.reshape(*X_train.shape, -1)
-X_valid = X_valid.reshape(*X_valid.shape, -1)
-print('gray', X_train.shape)
-
-x = tf.placeholder(tf.float32, shape=[None, *X_train[0].shape])
-y = tf.one_hot(tf.placeholder(tf.int32, (None)), num_classes)
-w = tf.placeholder(tf.float32, shape=[None])
-
-logits = model_gray(x, num_of_classes=num_classes)
-cross_entropy = tf.losses.softmax_cross_entropy(onehot_labels=y, logits=logits, weights=w)
-# cross_entropy = tf.losses.softmax_cross_entropy(onehot_labels=y, logits=logits)
-# cross_entropy = tf.nn.weighted_cross_entropy_with_logits(labels=y, logits=logits)
-# cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=logits)
-mean_loss = tf.reduce_mean(cross_entropy)
-optimizer = tf.train.AdamOptimizer()
-training = optimizer.minimize(mean_loss)
-
-correct_prediction = tf.equal(tf.argmax(logits, axis=1), tf.argmax(y, axis=1))
-accuracy_operation = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-
-def _iterate_over_batches(X_data, y_data, class_weights=None):
+def _iterate_over_batches(X_data, y_data, class_weights=None, dense_keep_probability=1., conv_keep_probability=1.):
     num_examples = len(X_data)
     for offset in range(0, num_examples, BATCH_SIZE):
         batch_x, batch_y = X_data[offset:offset + BATCH_SIZE], y_data[offset:offset + BATCH_SIZE]
         weights = np.ones(len(batch_x))
         if class_weights is not None:
             weights *= class_weights[batch_y]
-        yield {x: batch_x, y: _to_one_hot(batch_y, num_classes), w: weights}, len(batch_x)
+        yield {
+                  x: batch_x,
+                  y: _to_one_hot(batch_y, num_classes),
+                  w: weights,
+                  dense_keep_prob: dense_keep_probability,
+                  conv_keep_prob: conv_keep_probability
+              }, \
+              len(batch_x)
 
 
-def evaluate(X_data, y_data):
+def evaluate(X_data, y_data, accuracy, class_weights=None):
     accuracies_and_batch_sizes = list(
-        do_epoch(tf.get_default_session(),
-                 _iterate_over_batches(X_data, y_data, sign_names.train_percents),
-                 accuracy_operation))
+        do_epoch(
+            tf.get_default_session(),
+            _iterate_over_batches(X_data, y_data, class_weights),
+            accuracy
+        ))
 
     accuracies = np.array(list(map(itemgetter(0), accuracies_and_batch_sizes)))
     batch_sizes = np.array(list(map(itemgetter(1), accuracies_and_batch_sizes)))
@@ -212,14 +211,116 @@ def _to_one_hot(labels, depth):
     return result.astype(np.int8)
 
 
-with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
-    for i in range(EPOCHS):
-        X_train, y_train = shuffle(X_train, y_train)
-        list(do_epoch(sess, _iterate_over_batches(X_train, y_train, sign_names.train_percents), training))
-        training_accuracy = evaluate(X_train, y_train)
-        validation_accuracy = evaluate(X_valid, y_valid)
-        print("Epoch {}\tTraining accuracy = {:.3f}\tValidation accuracy = {:.3f}".format(
-            i + 1, training_accuracy, validation_accuracy))
+def train(X_train,
+          y_train,
+          X_valid,
+          y_valid,
+          accuracy,
+          train_class_weights,
+          valid_class_weights,
+          dense_dropout,
+          conv_dropout):
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        for i in range(EPOCHS):
+            X_train, y_train = shuffle(X_train, y_train)
 
-from keras.layers import Convolution2D
+            list(
+                do_epoch(sess,
+                         _iterate_over_batches(X_train, y_train, train_class_weights,
+                                               dense_keep_probability=dense_dropout,
+                                               conv_keep_probability=conv_dropout),
+                         training))
+
+            training_accuracy = evaluate(X_train, y_train, accuracy, train_class_weights)
+            validation_accuracy = evaluate(X_valid, y_valid, accuracy, valid_class_weights)
+            print("Epoch {}\tTraining accuracy = {:.3f}\tValidation accuracy = {:.3f}".format(
+                i + 1, training_accuracy, validation_accuracy))
+
+            # test_accuracy = evaluate(X_test, y_test, accuracy)
+            # print('test_accuracy', test_accuracy)
+
+
+CLAHE = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(5, 5))
+
+
+def equalize_histogram(image):
+    return CLAHE.apply(image)
+
+
+def rotate_augment(data, size):
+    degrees = np.random.normal(scale=20, size=size)
+    return zip(data, degrees)
+
+
+def augment(X, y, augmentation_operation, size=10000):
+    random_indices = np.random.choice(len(X), size=size, replace=False)
+
+    augmentation = _augmentation_util(augmentation_operation, rotate_augment(X[random_indices], size))
+
+    X_additional = np.array(list(augmentation)).reshape(size, *X.shape[1:])
+    print(X.shape)
+    print(X_additional.shape)
+    X = np.vstack((X, X_additional))
+    y = np.concatenate((y, y[random_indices]))
+    return X, y
+
+
+def _augmentation_util(augmentation_operation, augmentation_data):
+    return map(lambda params: augmentation_operation(*params), augmentation_data)
+
+
+if __name__ == "__main__":
+    dense_dropout = 0.75
+    conv_dropout = 1.0
+    X_train = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_train)))
+    X_valid = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_valid)))
+    X_test = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_test)))
+    X_train = X_train.reshape(*X_train.shape, -1)
+    X_valid = X_valid.reshape(*X_valid.shape, -1)
+    X_test = X_test.reshape(*X_test.shape, -1)
+
+    # X_train, y_train = augment(X_train, y_train, equalize_histogram, size=20000)
+    rows, columns, *_ = X_train[0].shape
+
+    equalizer = HistogramEqualizer()
+    X_train, y_train = equalizer(X_train, y_train, 30000)
+
+    rotator = Rotator(columns=columns, rows=rows)
+    X_train, y_train = rotator(X_train, y_train, size=40000)
+
+    squeezer = Squeezer(columns, rows, stddev_scale_coef=0.17)
+    X_train, y_train = squeezer(X_train, y_train, size=60000)
+
+    # flipper = Flipper()
+    # X_train, y_train = flipper(X_train, y_train, size=50000)
+
+    print(X_train.shape)
+    print('gray', X_train.shape)
+
+    x = tf.placeholder(tf.float32, shape=[None, *X_train[0].shape])
+    y = tf.one_hot(tf.placeholder(tf.int32, (None)), num_classes)
+    w = tf.placeholder(tf.float32, shape=[None])
+    dense_keep_prob = tf.placeholder(tf.float32)
+    conv_keep_prob = tf.placeholder(tf.float32)
+
+    logits = build_model(x, num_of_classes=num_classes, dense_keep_prob=dense_keep_prob, conv_keep_prob=conv_keep_prob)
+    cross_entropy = tf.losses.softmax_cross_entropy(onehot_labels=y, logits=logits, weights=w)
+    mean_loss = tf.reduce_mean(cross_entropy)
+    optimizer = tf.train.AdamOptimizer()
+    training = optimizer.minimize(mean_loss)
+
+    correct_prediction = tf.equal(tf.argmax(logits, axis=1), tf.argmax(y, axis=1))
+    accuracy_operation = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    train_class_weights = get_class_percents(y_train, keys)
+    valid_class_weights = sign_names.valid_percents
+
+    train(X_train,
+          y_train,
+          X_valid,
+          y_valid,
+          accuracy_operation,
+          train_class_weights,
+          valid_class_weights,
+          dense_dropout=dense_dropout,
+          conv_dropout=conv_dropout)
