@@ -289,7 +289,7 @@ if __name__ == "__main__":
     rotator = Rotator(columns=columns, rows=rows)
     X_train, y_train = rotator(X_train, y_train, size=40000)
 
-    squeezer = Squeezer(columns, rows, stddev_scale_coef=0.17)
+    squeezer = Squeezer(columns, rows, stddev_horizontal_scale_coef=0.17)
     X_train, y_train = squeezer(X_train, y_train, size=60000)
 
     # flipper = Flipper()

@@ -12,8 +12,15 @@ X_train, y_train = train['features'], train['labels']
 rows, columns, channels = X_train[0].shape
 
 # Points for defining the affine transformation that squeezes image from left and right
-POINTS1 = np.float32([[columns / 2, 0], [0, rows / 2], [columns, rows / 2]])
-POINTS2 = np.float32([[columns / 2, 0], [columns / 4, rows / 2], [columns * 3 / 4, rows / 2]])
+# POINTS1 = np.float32([[columns / 2, 0], [0, rows / 2], [columns, rows / 2]])
+# POINTS2 = np.float32([[columns / 2, 0], [columns / 4, rows / 2], [columns * 3 / 4, rows / 2]])
+
+# POINTS1 = np.float32([[0, rows / 2], [columns / 2, 0], [columns / 2, rows]])
+# POINTS2 = np.float32([[0, rows / 2], [columns / 2, rows / 4], [columns / 2, rows*3 / 4]])
+
+POINTS1 = np.float32([[0, 0], [0, rows], [columns, rows]])
+POINTS2 = np.float32([[columns / 4, rows / 4], [columns / 4, 3 * rows / 4], [3 * columns / 4, rows * 3 / 4]])
+
 SQUEEZE = cv2.getAffineTransform(POINTS1, POINTS2)
 
 # Contrast Limited Adaptive Histogram Equalization
@@ -49,21 +56,27 @@ def plot(image):
     plt.show()
 
     grayscaled = grayscale(image)
-    squeezed = squeeze_from_sides(grayscaled)
-
-    equalized = equalize_histogram(squeezed)
+    equalized = equalize_histogram(grayscaled)
     plt.imshow(equalized, cmap='gray')
     plt.show()
 
-    plt.imshow(cv2.flip(equalized, 1))
+    # M = np.float32([[1,0,100],[0,1,50]])
+    # dst = cv2.warpAffine(img,M,(cols,rows))
+
+    squeezed = squeeze_from_sides(grayscaled)
+    plt.imshow(squeezed, cmap='gray')
     plt.show()
 
+
+    plt.imshow(cv2.flip(equalized, 1))
+    # plt.show()
+
     plt.imshow(rotate(equalized, degree=10), cmap='gray')
-    plt.show()
+    # plt.show()
 
     th3 = cv2.adaptiveThreshold(grayscaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 13, 2)
     plt.imshow(th3, cmap='gray')
-    plt.show()
+    # plt.show()
 
 
 # translation
@@ -76,7 +89,9 @@ def plot(image):
 # plt.imshow(normalized, cmap='gray')
 # plt.show()
 
-# plot(X_train[28129])
+plot(X_train[28129])
+
+
 # plot(X_train[27418])
 # plot(X_train[15929])
 # plot(X_train[17182])

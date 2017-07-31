@@ -54,24 +54,43 @@ class Squeezer(Augmentation):
     Keep the rows same and squeeze the columns
     """
 
-    def __init__(self, columns, rows, stddev_scale_coef=0.12, **kwargs):
+    # TODO: Change it to squeeze also the rows
+    def __init__(self, columns, rows, stddev_horizontal_scale_coef=0.12, stddev_vertical_scale_coef=0.12, **kwargs):
         super(Squeezer, self).__init__(partial(squeeze_from_sides, columns=columns, rows=rows), **kwargs)
-        self._scale_stddev = stddev_scale_coef
+        self._horizontal_scale_stddev = stddev_horizontal_scale_coef
+        self._vertical_scale_stddev = stddev_vertical_scale_coef
 
     def _get_augmentation_params(self, data, size):
         _, columns, rows, _ = data.shape
 
         def get_transformation_matrix():
             # initial three points
-            points1 = np.float32([[columns / 2, 0], [0, rows / 2], [columns, rows / 2]])
+            points1 = np.float32([[0, 0], [0, rows], [columns, rows]])
+            # points1 = np.float32([[columns / 2, 0], [0, rows / 2], [columns, rows / 2]])
 
             # the points after the transformation
+            # don't take absolute value, to allow "zoom in"(perspective) type of transformations
             points2 = np.float32(
                 [
-                    [columns / 2, 0],
-                    [columns * np.abs(np.random.normal(scale=self._scale_stddev, size=1))[0], rows / 2],
-                    [columns * 1 - np.abs(np.random.normal(scale=self._scale_stddev, size=1))[0], rows / 2]
+                    [
+                        columns * np.random.normal(scale=self._horizontal_scale_stddev, size=1)[0],
+                        rows * np.random.normal(scale=self._vertical_scale_stddev, size=1)[0]
+                    ],
+                    [
+                        columns * np.random.normal(scale=self._horizontal_scale_stddev, size=1)[0],
+                        rows * (1 - np.random.normal(scale=self._vertical_scale_stddev, size=1)[0])
+                    ],
+                    [
+                        columns * (1 - np.random.normal(scale=self._horizontal_scale_stddev, size=1)[0]),
+                        rows * (1 - np.random.normal(scale=self._vertical_scale_stddev, size=1)[0])
+                    ]
                 ])
+            # points2 = np.float32(
+            #     [
+            #         [columns / 2, 0],
+            #         [columns * np.abs(np.random.normal(scale=self._scale_stddev, size=1))[0], rows / 2],
+            #         [columns * 1 - np.abs(np.random.normal(scale=self._scale_stddev, size=1))[0], rows / 2]
+            #     ])
 
             return cv2.getAffineTransform(points1, points2)
 
