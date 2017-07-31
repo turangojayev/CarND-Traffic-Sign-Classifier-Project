@@ -3,7 +3,7 @@ import pickle
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.linalg import eig
+from numpy.linalg import eig, eigh
 
 with open('data/train.p', mode='rb') as f:
     train = pickle.load(f)
@@ -55,15 +55,15 @@ def plot(image):
     plt.imshow(image)
     plt.show()
 
-    grayscaled = grayscale(image)
-    equalized = equalize_histogram(grayscaled)
-    plt.imshow(equalized, cmap='gray')
-    plt.show()
+    # grayscaled = grayscale(image)
+    # equalized = equalize_histogram(grayscaled)
+    # plt.imshow(equalized, cmap='gray')
+    # plt.show()
 
     # M = np.float32([[1,0,100],[0,1,50]])
     # dst = cv2.warpAffine(img,M,(cols,rows))
 
-    squeezed = squeeze_from_sides(grayscaled)
+    squeezed = squeeze_from_sides(image)
     plt.imshow(squeezed, cmap='gray')
     plt.show()
 
@@ -89,7 +89,7 @@ def plot(image):
 # plt.imshow(normalized, cmap='gray')
 # plt.show()
 
-plot(X_train[28129])
+# plot(X_train[28129])
 
 
 # plot(X_train[27418])
@@ -115,7 +115,7 @@ def pca_aug(img):
     plt.imshow(reshaped.reshape(32, 32, 3))
     plt.show()
     # values, vectors = eigh(cov(reshaped))
-    values, vectors = eig(cov(reshaped))
+    values, vectors = eigh(cov(reshaped))
     print(values)
 
     pca = np.sqrt(values) * vectors
@@ -128,17 +128,17 @@ def pca_aug(img):
     plt.show()
     print(perturb)
 
-# pca_aug(X_train[0])
-# pca_aug(X_train[28129])
-# pca_aug(X_train[27418])
-# pca_aug(X_train[15929])
-# pca_aug(X_train[17182])
-# pca_aug(X_train[8115])
-# pca_aug(X_train[5643])
-# pca_aug(X_train[12949])
-# pca_aug(X_train[31571])
-# pca_aug(X_train[31578])
-# pca_aug(X_train[33848])
-# pca_aug(X_train[26418])
-# pca_aug(X_train[14618])
-# pca_aug(X_train[18418])
+pca_aug(X_train[0])
+pca_aug(X_train[28129])
+pca_aug(X_train[27418])
+pca_aug(X_train[15929])
+pca_aug(X_train[17182])
+pca_aug(X_train[8115])
+pca_aug(X_train[5643])
+pca_aug(X_train[12949])
+pca_aug(X_train[31571])
+pca_aug(X_train[31578])
+pca_aug(X_train[33848])
+pca_aug(X_train[26418])
+pca_aug(X_train[14618])
+pca_aug(X_train[18418])

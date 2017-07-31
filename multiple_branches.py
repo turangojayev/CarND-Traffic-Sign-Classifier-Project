@@ -122,7 +122,7 @@ def build_model(x, num_of_classes, dense_keep_prob, conv_keep_prob):
     dense1_out_size = 128
     dense2_out_size = 120
     dense3_out_size = 86
-    input_channels = int(x.shape[3])
+    input_channels = int(x_rgb.shape[3])
 
     conv1 = ConvolutionalLayer(kernel_size=[5, 5], input_channels=input_channels, filters=l1_depth, mean=0, stddev=0.1)
     l1_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
@@ -238,12 +238,11 @@ def build_model3(x_gray, x_rgb, num_of_classes, dense_keep_prob, conv_keep_prob)
     conv2 = ConvolutionalLayer(kernel_size=[3, 3], input_channels=l1_depth, filters=l2_depth, mean=0, stddev=0.1)
     l2_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
 
-
-    conv1_rgb = ConvolutionalLayer(kernel_size=[5, 5], input_channels=rgb_channels, filters=l1_depth, mean=0, stddev=0.1)
+    conv1_rgb = ConvolutionalLayer(kernel_size=[5, 5], input_channels=rgb_channels, filters=l1_depth, mean=0,
+                                   stddev=0.1)
     l1_maxpool_rgb = MaxPool(kernel_size=[2, 2], strides=[2, 2])
     conv2_rgb = ConvolutionalLayer(kernel_size=[3, 3], input_channels=l1_depth, filters=l2_depth, mean=0, stddev=0.1)
     l2_maxpool_rgb = MaxPool(kernel_size=[2, 2], strides=[2, 2])
-
 
     conv1_out = conv1(x_gray)
     l1_maxout = tf.nn.dropout(conv1_out, conv_keep_prob)
@@ -253,7 +252,6 @@ def build_model3(x_gray, x_rgb, num_of_classes, dense_keep_prob, conv_keep_prob)
     l2_maxout = tf.nn.dropout(conv2_out, conv_keep_prob)
     l2_maxout = l2_maxpool(l2_maxout)
 
-
     conv1_out_rgb = conv1_rgb(x_rgb)
     l1_maxout_rgb = tf.nn.dropout(conv1_out_rgb, conv_keep_prob)
     l1_maxout_rgb = l1_maxpool_rgb(l1_maxout_rgb)
@@ -261,7 +259,6 @@ def build_model3(x_gray, x_rgb, num_of_classes, dense_keep_prob, conv_keep_prob)
     conv2_out_rgb = conv2_rgb(l1_maxout_rgb)
     l2_maxout_rgb = tf.nn.dropout(conv2_out_rgb, conv_keep_prob)
     l2_maxout_rgb = l2_maxpool_rgb(l2_maxout_rgb)
-
 
     flattened = tf.contrib.layers.flatten(l2_maxout)
     concatenated = tf.concat([flattened, tf.contrib.layers.flatten(l2_maxout_rgb)], axis=1)
@@ -290,35 +287,38 @@ def build_model3(x_gray, x_rgb, num_of_classes, dense_keep_prob, conv_keep_prob)
     return output_out
 
 
-
-def _iterate_over_batches(X_data, y_data, class_weights=None, dense_keep_probability=1., conv_keep_probability=1.):
-    num_examples = len(X_data)
+def _iterate_over_batches(X_data_gray, X_data, y_data, class_weights=None, dense_keep_probability=1.,
+                          conv_keep_probability=1.):
+    num_examples = len(X_data_gray)
     for offset in range(0, num_examples, BATCH_SIZE):
-        batch_x, batch_y = X_data[offset:offset + BATCH_SIZE], y_data[offset:offset + BATCH_SIZE]
-        weights = np.ones(len(batch_x))
+        batch_x_gray, batch_x, batch_y = X_data_gray[offset:offset + BATCH_SIZE], \
+                                         X_data[offset:offset + BATCH_SIZE], \
+                                         y_data[offset:offset + BATCH_SIZE]
+        weights = np.ones(len(batch_x_gray))
         if class_weights is not None:
             weights *= class_weights[batch_y]
         yield {
-                  x: batch_x,
+                  x: batch_x_gray,
+                  x_rgb: batch_x,
                   y: _to_one_hot(batch_y, num_classes),
                   w: weights,
                   dense_keep_prob: dense_keep_probability,
                   conv_keep_prob: conv_keep_probability
               }, \
-              len(batch_x)
+              len(batch_x_gray)
 
 
-def evaluate(X_data, y_data, accuracy, class_weights=None):
+def evaluate(X_data_gray, X_data, y_data, accuracy, class_weights=None):
     accuracies_and_batch_sizes = list(
         do_epoch(
             tf.get_default_session(),
-            _iterate_over_batches(X_data, y_data, class_weights),
+            _iterate_over_batches(X_data_gray, X_data, y_data, class_weights),
             accuracy
         ))
 
     accuracies = np.array(list(map(itemgetter(0), accuracies_and_batch_sizes)))
     batch_sizes = np.array(list(map(itemgetter(1), accuracies_and_batch_sizes)))
-    return np.dot(accuracies, batch_sizes) / len(X_data)
+    return np.dot(accuracies, batch_sizes) / len(X_data_gray)
 
 
 def do_epoch(session, iterable, *operation):
@@ -332,8 +332,10 @@ def _to_one_hot(labels, depth):
     return result.astype(np.int8)
 
 
-def train(X_train,
+def train(X_train_gray,
+          X_train,
           y_train,
+          X_valid_gray,
           X_valid,
           y_valid,
           accuracy,
@@ -344,17 +346,17 @@ def train(X_train,
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         for i in range(EPOCHS):
-            X_train, y_train = shuffle(X_train, y_train)
+            X_train_gray, y_train = shuffle(X_train_gray, y_train)
 
             list(
                 do_epoch(sess,
-                         _iterate_over_batches(X_train, y_train, train_class_weights,
+                         _iterate_over_batches(X_train_gray, X_train, y_train, train_class_weights,
                                                dense_keep_probability=dense_dropout,
                                                conv_keep_probability=conv_dropout),
                          training))
 
-            training_accuracy = evaluate(X_train, y_train, accuracy, train_class_weights)
-            validation_accuracy = evaluate(X_valid, y_valid, accuracy, valid_class_weights)
+            training_accuracy = evaluate(X_train_gray, X_train, y_train, accuracy, train_class_weights)
+            validation_accuracy = evaluate(X_valid_gray, X_valid, y_valid, accuracy, valid_class_weights)
             print("Epoch {}\tTraining accuracy = {:.3f}\tValidation accuracy = {:.3f}".format(
                 i + 1, training_accuracy, validation_accuracy))
 
@@ -394,39 +396,40 @@ def _augmentation_util(augmentation_operation, augmentation_data):
 if __name__ == "__main__":
     dense_dropout = 0.75
     conv_dropout = 0.8
-    X_train = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_train)))
-    X_valid = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_valid)))
-    X_test = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_test)))
-    X_train = X_train.reshape(*X_train.shape, -1)
-    X_valid = X_valid.reshape(*X_valid.shape, -1)
-    X_test = X_test.reshape(*X_test.shape, -1)
+    X_train_gray = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_train)))
+    X_valid_gray = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_valid)))
+    X_test_gray = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_test)))
 
-    # X_train, y_train = augment(X_train, y_train, equalize_histogram, size=20000)
+    X_train_gray = X_train_gray.reshape(*X_train_gray.shape, -1)
+    X_valid_gray = X_valid_gray.reshape(*X_valid_gray.shape, -1)
+    X_test_gray = X_test_gray.reshape(*X_test_gray.shape, -1)
+
     rows, columns, *_ = X_train[0].shape
+    print(X_train_gray.shape, X_train.shape)
+
 
     equalizer = HistogramEqualizer()
-    X_train, y_train, _ = equalizer(X_train, y_train, 30000)
+    X_train_gray, y_train, aug_indices = equalizer(X_train_gray, y_train, 30000)
+    X_train = np.vstack((X_train, X_train[aug_indices]))
 
     rotator = Rotator(columns=columns, rows=rows, stddev_rotation_angle=10)
-    X_train, y_train, _ = rotator(X_train, y_train, size=40000)
+    X_train_gray, y_train, aug_indices = rotator(X_train_gray, y_train, size=40000)
+    X_train = np.vstack((X_train, X_train[aug_indices]))
 
     squeezer = Squeezer(columns, rows, stddev_horizontal_scale_coef=0.10, stddev_vertical_scale_coef=0.10)
-    X_train, y_train, _ = squeezer(X_train, y_train, size=60000)
+    X_train_gray, y_train, aug_indices = squeezer(X_train_gray, y_train, size=60000)
+    X_train = np.vstack((X_train, X_train[aug_indices]))
+    print(X_train_gray.shape, X_train.shape)
 
-    # flipper = Flipper()
-    # X_train, y_train, _ = flipper(X_train, y_train, size=50000)
-
-    print(X_train.shape)
-    print('gray', X_train.shape)
-
-    x = tf.placeholder(tf.float32, shape=[None, *X_train[0].shape])
-    x = tf.placeholder(tf.float32, shape=[None, *X_train[0].shape])
+    x = tf.placeholder(tf.float32, shape=[None, *X_train_gray[0].shape])
+    x_rgb = tf.placeholder(tf.float32, shape=[None, *X_train[0].shape])
     y = tf.one_hot(tf.placeholder(tf.int32, (None)), num_classes)
     w = tf.placeholder(tf.float32, shape=[None])
     dense_keep_prob = tf.placeholder(tf.float32)
     conv_keep_prob = tf.placeholder(tf.float32)
 
-    logits = build_model2(x, num_of_classes=num_classes, dense_keep_prob=dense_keep_prob, conv_keep_prob=conv_keep_prob)
+    logits = build_model3(x, x_rgb, num_of_classes=num_classes, dense_keep_prob=dense_keep_prob,
+                          conv_keep_prob=conv_keep_prob)
     cross_entropy = tf.losses.softmax_cross_entropy(onehot_labels=y, logits=logits, weights=w)
     mean_loss = tf.reduce_mean(cross_entropy)
     optimizer = tf.train.AdamOptimizer()
@@ -437,12 +440,15 @@ if __name__ == "__main__":
     train_class_weights = get_class_percents(y_train, keys)
     valid_class_weights = sign_names.valid_percents
 
-    train(X_train,
+
+    train(X_train_gray,
+          X_train,
           y_train,
+          X_valid_gray,
           X_valid,
           y_valid,
           accuracy_operation,
-          train_class_weights=None,
-          valid_class_weights=None,
+          train_class_weights,
+          valid_class_weights,
           dense_dropout=dense_dropout,
           conv_dropout=conv_dropout)

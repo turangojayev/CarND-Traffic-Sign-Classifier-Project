@@ -25,7 +25,7 @@ class Augmentation:
         X_additional = np.array(augmented).reshape(size, *X.shape[1:])
         X = np.vstack((X, X_additional))
         y = np.concatenate((y, y[random_indices]))
-        return X, y
+        return X, y, random_indices
 
     def _get_augmentation_params(self, data, size):
         pass
@@ -50,11 +50,6 @@ class HistogramEqualizer(Augmentation):
 
 
 class Squeezer(Augmentation):
-    """
-    Keep the rows same and squeeze the columns
-    """
-
-    # TODO: Change it to squeeze also the rows
     def __init__(self, columns, rows, stddev_horizontal_scale_coef=0.12, stddev_vertical_scale_coef=0.12, **kwargs):
         super(Squeezer, self).__init__(partial(squeeze_from_sides, columns=columns, rows=rows), **kwargs)
         self._horizontal_scale_stddev = stddev_horizontal_scale_coef
