@@ -127,7 +127,6 @@ def pca_aug(img):
     plt.show()
     print(perturb)
 
-<<<<<<< HEAD
 
 def pca_aug2(images):
     from numpy import cov
@@ -181,19 +180,3 @@ pca_aug2(X_train)
 # pca_aug(X_train[26418])
 # pca_aug(X_train[14618])
 # pca_aug(X_train[18418])
-=======
-pca_aug(X_train[0])
-pca_aug(X_train[28129])
-pca_aug(X_train[27418])
-pca_aug(X_train[15929])
-pca_aug(X_train[17182])
-pca_aug(X_train[8115])
-pca_aug(X_train[5643])
-pca_aug(X_train[12949])
-pca_aug(X_train[31571])
-pca_aug(X_train[31578])
-pca_aug(X_train[33848])
-pca_aug(X_train[26418])
-pca_aug(X_train[14618])
-pca_aug(X_train[18418])
->>>>>>> b7911415d8fe3277fbdfece836f313457b39119a
