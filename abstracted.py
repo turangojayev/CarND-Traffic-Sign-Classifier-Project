@@ -10,7 +10,7 @@ import os
 import pandas as pd
 from sklearn.utils import shuffle
 
-EPOCHS = 150
+EPOCHS = 200
 BATCH_SIZE = 256
 np.random.seed(12345)
 
@@ -76,8 +76,11 @@ class ConvolutionalLayer:
                  stddev=0.1,
                  activation=tf.nn.relu,
                  padding='VALID'):
-        self._filters = tf.Variable(
-            tf.random_normal(shape=[*kernel_size, input_channels, filters], mean=mean, stddev=stddev))
+        # self._filters = tf.Variable(
+        #     tf.random_normal(shape=[*kernel_size, input_channels, filters], mean=mean, stddev=stddev))
+        self._filters = tf.get_variable("conv-{}-{}".format(input_channels, filters),
+                                        shape=[*kernel_size, input_channels, filters],
+                                        initializer=tf.contrib.layers.xavier_initializer())
         if strides is None:
             strides = [1, 1]
         self._strides = strides
@@ -107,7 +110,11 @@ class Dense:
                  mean=0,
                  stddev=0.1,
                  activation=tf.nn.relu):
-        self._weights = tf.Variable(tf.truncated_normal(shape=[input_size, output_size], mean=mean, stddev=stddev))
+        # self._weights = tf.Variable(tf.truncated_normal(shape=[input_size, output_size], mean=mean, stddev=stddev))
+        # self._weights = tf.Variable(tf.contrib.layers.xavier(shape=[input_size, output_size], mean=mean, stddev=stddev))
+        self._weights = tf.get_variable("weights{}-{}".format(input_size, output_size),
+                                        shape=[input_size, output_size],
+                                        initializer=tf.contrib.layers.xavier_initializer())
         self._bias = tf.Variable(tf.zeros(output_size))
         self._activation = activation
 
@@ -171,10 +178,10 @@ def build_model(x, num_of_classes, dense_keep_prob, conv_keep_prob):
 
 
 def build_model2(x, num_of_classes, dense_keep_prob, conv_keep_prob):
-    l1_depth = 16
-    l2_depth = 16
-    dense1_out_size = 128
-    dense2_out_size = 120
+    l1_depth = 32
+    l2_depth = 32
+    dense1_out_size = 300
+    dense2_out_size = 256
     dense3_out_size = 86
     input_channels = int(x.shape[3])
 
@@ -192,14 +199,16 @@ def build_model2(x, num_of_classes, dense_keep_prob, conv_keep_prob):
     l2_maxout = l2_maxpool(l2_maxout)
 
     flattened = tf.contrib.layers.flatten(l2_maxout)
+    l1_flattened = tf.contrib.layers.flatten(l1_maxpool(l1_maxout))
+    concatenated = tf.concat([flattened, l1_flattened], axis=1)
 
-    dense1 = Dense(dense1_out_size, int(flattened.shape[1]), mean=0, stddev=0.1)
-    dense1_out = dense1(flattened)
+    dense1 = Dense(dense1_out_size, int(concatenated.shape[1]), mean=0, stddev=0.1)
+    dense1_out = dense1(concatenated)
     dense1_out = tf.nn.dropout(dense1_out, dense_keep_prob)
 
-    dense2 = Dense(dense2_out_size, dense1_out_size, mean=0, stddev=0.1)
-    dense2_out = dense2(dense1_out)
-    dense2_out = tf.nn.dropout(dense2_out, dense_keep_prob)
+    # dense2 = Dense(dense2_out_size, dense1_out_size, mean=0, stddev=0.1)
+    # dense2_out = dense2(dense1_out)
+    # dense2_out = tf.nn.dropout(dense2_out, dense_keep_prob)
     #
     # dense3 = Dense(dense3_out_size, dense2_out_size, mean=0, stddev=0.1)
     # dense3_out = dense3(dense2_out)
@@ -208,44 +217,37 @@ def build_model2(x, num_of_classes, dense_keep_prob, conv_keep_prob):
     # dense3 = Dense(dense3_out_size, dense2_out_size, mean=0, stddev=0.1)
     # dense3_out = dense3(dense2_out)
 
-    dense4 = Dense(num_of_classes, dense2_out_size, mean=0, stddev=0.1)
-    dense4_out = dense4(dense2_out)
+    dense4 = Dense(num_of_classes, dense1_out_size, mean=0, stddev=0.1)
+    dense4_out = dense4(dense1_out)
 
     print(conv1_out.shape)
     print(l1_maxout.shape)
     print(conv2_out.shape)
     print(l2_maxout.shape)
+    print(l1_flattened.shape)
     print(flattened.shape)
+    print(concatenated.shape)
     print(dense1_out.shape)
     # print(dense2_out.shape)
-    # print(dense3_out.shape)
     print(dense4_out.shape)
 
     return dense4_out
 
 
-def build_model3(x_gray, x_rgb, num_of_classes, dense_keep_prob, conv_keep_prob):
-    l1_depth = 16
-    l2_depth = 16
-    dense1_out_size = 128
-    dense2_out_size = 120
-    # gray_channel = int(x_gray.shape[3])
-    gray_channel = 1
-    rgb_channels = 3
+def build_model3(x, num_of_classes, dense_keep_prob, conv_keep_prob):
+    l1_depth = 32
+    l2_depth = 64
+    dense1_out_size = 300
+    dense2_out_size = 256
+    dense3_out_size = 86
+    input_channels = int(x.shape[3])
 
-    conv1 = ConvolutionalLayer(kernel_size=[5, 5], input_channels=gray_channel, filters=l1_depth, mean=0, stddev=0.1)
+    conv1 = ConvolutionalLayer(kernel_size=[5, 5], input_channels=input_channels, filters=l1_depth, mean=0, stddev=0.1)
     l1_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
     conv2 = ConvolutionalLayer(kernel_size=[3, 3], input_channels=l1_depth, filters=l2_depth, mean=0, stddev=0.1)
     l2_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
 
-
-    conv1_rgb = ConvolutionalLayer(kernel_size=[5, 5], input_channels=rgb_channels, filters=l1_depth, mean=0, stddev=0.1)
-    l1_maxpool_rgb = MaxPool(kernel_size=[2, 2], strides=[2, 2])
-    conv2_rgb = ConvolutionalLayer(kernel_size=[3, 3], input_channels=l1_depth, filters=l2_depth, mean=0, stddev=0.1)
-    l2_maxpool_rgb = MaxPool(kernel_size=[2, 2], strides=[2, 2])
-
-
-    conv1_out = conv1(x_gray)
+    conv1_out = conv1(x)
     l1_maxout = tf.nn.dropout(conv1_out, conv_keep_prob)
     l1_maxout = l1_maxpool(l1_maxout)
 
@@ -253,42 +255,40 @@ def build_model3(x_gray, x_rgb, num_of_classes, dense_keep_prob, conv_keep_prob)
     l2_maxout = tf.nn.dropout(conv2_out, conv_keep_prob)
     l2_maxout = l2_maxpool(l2_maxout)
 
-
-    conv1_out_rgb = conv1_rgb(x_rgb)
-    l1_maxout_rgb = tf.nn.dropout(conv1_out_rgb, conv_keep_prob)
-    l1_maxout_rgb = l1_maxpool_rgb(l1_maxout_rgb)
-
-    conv2_out_rgb = conv2_rgb(l1_maxout_rgb)
-    l2_maxout_rgb = tf.nn.dropout(conv2_out_rgb, conv_keep_prob)
-    l2_maxout_rgb = l2_maxpool_rgb(l2_maxout_rgb)
-
-
     flattened = tf.contrib.layers.flatten(l2_maxout)
-    concatenated = tf.concat([flattened, tf.contrib.layers.flatten(l2_maxout_rgb)], axis=1)
+    # l1_flattened = tf.contrib.layers.flatten(l1_maxpool(l1_maxout))
+    # concatenated = tf.concat([flattened, l1_flattened], axis=1)
 
-    dense1 = Dense(dense1_out_size, int(concatenated.shape[1]), mean=0, stddev=0.1)
-    dense1_out = dense1(concatenated)
+    dense1 = Dense(dense1_out_size, int(flattened.shape[1]), mean=0, stddev=0.1)
+    dense1_out = dense1(flattened)
     dense1_out = tf.nn.dropout(dense1_out, dense_keep_prob)
 
-    dense2 = Dense(dense2_out_size, dense1_out_size, mean=0, stddev=0.1)
-    dense2_out = dense2(dense1_out)
-    dense2_out = tf.nn.dropout(dense2_out, dense_keep_prob)
+    # dense2 = Dense(dense2_out_size, dense1_out_size, mean=0, stddev=0.1)
+    # dense2_out = dense2(dense1_out)
+    # dense2_out = tf.nn.dropout(dense2_out, dense_keep_prob)
+    #
+    # dense3 = Dense(dense3_out_size, dense2_out_size, mean=0, stddev=0.1)
+    # dense3_out = dense3(dense2_out)
+    # dense3_out = tf.nn.dropout(dense3_out, dense_keep_prob)
 
-    output = Dense(num_of_classes, dense2_out_size, mean=0, stddev=0.1)
-    output_out = output(dense2_out)
+    # dense3 = Dense(dense3_out_size, dense2_out_size, mean=0, stddev=0.1)
+    # dense3_out = dense3(dense2_out)
+
+    dense4 = Dense(num_of_classes, dense1_out_size, mean=0, stddev=0.1)
+    dense4_out = dense4(dense1_out)
 
     print(conv1_out.shape)
     print(l1_maxout.shape)
     print(conv2_out.shape)
     print(l2_maxout.shape)
+    # print(l1_flattened.shape)
     print(flattened.shape)
+    # print(concatenated.shape)
     print(dense1_out.shape)
     # print(dense2_out.shape)
-    # print(dense3_out.shape)
-    print(output_out.shape)
+    print(dense4_out.shape)
 
-    return output_out
-
+    return dense4_out
 
 
 def _iterate_over_batches(X_data, y_data, class_weights=None, dense_keep_probability=1., conv_keep_probability=1.):
@@ -308,12 +308,12 @@ def _iterate_over_batches(X_data, y_data, class_weights=None, dense_keep_probabi
               len(batch_x)
 
 
-def evaluate(X_data, y_data, accuracy, class_weights=None):
+def evaluate(X_data, y_data, operation, class_weights=None):
     accuracies_and_batch_sizes = list(
         do_epoch(
             tf.get_default_session(),
             _iterate_over_batches(X_data, y_data, class_weights),
-            accuracy
+            operation
         ))
 
     accuracies = np.array(list(map(itemgetter(0), accuracies_and_batch_sizes)))
@@ -332,6 +332,53 @@ def _to_one_hot(labels, depth):
     return result.astype(np.int8)
 
 
+def _get_default_model_name():
+    from datetime import datetime
+    now = str(datetime.now())
+    return 'model-{}'.format(now)
+
+
+def _create_if_not_exists(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+
+class EarlyStopper:
+    def __init__(self, saver, session, which=min, patience=5, model_description=None):
+        self._saver = saver
+        self._session = session
+        self._method = which
+        self._last_value = None
+        self._current_epoch = 0
+        self._best_epoch = 0
+        self._patience = patience
+        self._best_path = None
+
+        directory = os.path.join(os.getcwd(), 'models')
+        _create_if_not_exists(directory)
+        if model_description is None:
+            model_description = _get_default_model_name()
+        self._basename = os.path.join(directory, model_description)
+
+    def should_stop(self, value):
+        self._current_epoch += 1
+        stop = False
+        if self._last_value is None or self._last_value != self._method(value, self._last_value):
+            self._last_value = value
+            self._best_epoch = self._current_epoch
+            self._best_path = os.path.join('{}-{:.3f}-{}'.format(self._basename, value, self._current_epoch))
+            self._saver.save(self._session, self._best_path)
+        elif self._current_epoch - self._best_epoch > self._patience:
+            stop = True
+        return stop
+
+    def load(self):
+        if self._best_path is not None:
+            self._saver.restore(self._session, self._best_path)
+        else:
+            raise ValueError('No path to the model to load, train first!')
+
+
 def train(X_train,
           y_train,
           X_valid,
@@ -341,59 +388,48 @@ def train(X_train,
           valid_class_weights,
           dense_dropout,
           conv_dropout):
+    saver = tf.train.Saver()
     with tf.Session() as sess:
+        early_stopper = EarlyStopper(saver, sess, which=max, patience=50, model_description='mirt')
         sess.run(tf.global_variables_initializer())
         for i in range(EPOCHS):
             X_train, y_train = shuffle(X_train, y_train)
 
-            list(
-                do_epoch(sess,
-                         _iterate_over_batches(X_train, y_train, train_class_weights,
-                                               dense_keep_probability=dense_dropout,
-                                               conv_keep_probability=conv_dropout),
-                         training))
+            results = list(do_epoch(sess,
+                                    _iterate_over_batches(X_train, y_train, train_class_weights,
+                                                          dense_keep_probability=dense_dropout,
+                                                          conv_keep_probability=conv_dropout),
+                                    [training,
+                                     mean_loss,
+                                     accuracy]))
+            evaluations = list(map(itemgetter(0), results))
+            losses = np.array(list(map(itemgetter(1), evaluations)))
+            accuracies = np.array(list(map(itemgetter(2), evaluations)))
+            batch_sizes = np.array(list(map(itemgetter(1), results)))
 
-            training_accuracy = evaluate(X_train, y_train, accuracy, train_class_weights)
-            validation_accuracy = evaluate(X_valid, y_valid, accuracy, valid_class_weights)
-            print("Epoch {}\tTraining accuracy = {:.3f}\tValidation accuracy = {:.3f}".format(
-                i + 1, training_accuracy, validation_accuracy))
+            train_loss = np.dot(losses, batch_sizes) / np.sum(batch_sizes)
+            train_accuracy = np.dot(accuracies, batch_sizes) / np.sum(batch_sizes)
 
-            # test_accuracy = evaluate(X_test, y_test, accuracy)
-            # print('test_accuracy', test_accuracy)
+            validation_accuracy = evaluate(X_valid, y_valid, accuracy)
+            validation_loss = evaluate(X_train, y_train, mean_loss, valid_class_weights)
+            print(
+                "Epoch {} train loss={:.3f}, acc.={:.3f}\tvalid loss = {:.3f}, acc. = {:.3f}".format(
+                    i + 1, train_loss, train_accuracy, validation_loss, validation_accuracy))
 
+            if early_stopper.should_stop(validation_accuracy):
+                break
 
-CLAHE = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(5, 5))
-
-
-def equalize_histogram(image):
-    return CLAHE.apply(image)
-
-
-def rotate_augment(data, size):
-    degrees = np.random.normal(scale=20, size=size)
-    return zip(data, degrees)
-
-
-def augment(X, y, augmentation_operation, size=10000):
-    random_indices = np.random.choice(len(X), size=size, replace=False)
-
-    augmentation = _augmentation_util(augmentation_operation, rotate_augment(X[random_indices], size))
-
-    X_additional = np.array(list(augmentation)).reshape(size, *X.shape[1:])
-    print(X.shape)
-    print(X_additional.shape)
-    X = np.vstack((X, X_additional))
-    y = np.concatenate((y, y[random_indices]))
-    return X, y
-
-
-def _augmentation_util(augmentation_operation, augmentation_data):
-    return map(lambda params: augmentation_operation(*params), augmentation_data)
+        early_stopper.load()
+        test_accuracy = evaluate(X_test, y_test, accuracy)
+        print('test_accuracy', test_accuracy)
 
 
 if __name__ == "__main__":
-    dense_dropout = 0.75
-    conv_dropout = 0.8
+    dense_dropout = 0.7
+    conv_dropout = 0.7
+    # X_train = 255 - X_train
+    # X_valid = 255- X_valid
+    # X_test = 255 - X_test
     X_train = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_train)))
     X_valid = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_valid)))
     X_test = np.array(list(map(lambda img: cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), X_test)))
@@ -404,13 +440,22 @@ if __name__ == "__main__":
     # X_train, y_train = augment(X_train, y_train, equalize_histogram, size=20000)
     rows, columns, *_ = X_train[0].shape
 
+    # random_indices = np.random.choice(len(X_train), size=20000, replace=False)
+    # augmented = list(map(lambda image:255-image, X_train[random_indices]))
+    # X_additional = np.array(augmented).reshape(20000, *X_train.shape[1:])
+    # X_train = np.vstack((X_train, X_additional))
+    # y_train = np.concatenate((y_train, y_train[random_indices]))
+    # X_train = 255 - X_train
+    # X_valid = 255- X_valid
+    # X_test = 255 - X_test
+
     equalizer = HistogramEqualizer()
     X_train, y_train, _ = equalizer(X_train, y_train, 30000)
 
     rotator = Rotator(columns=columns, rows=rows, stddev_rotation_angle=10)
     X_train, y_train, _ = rotator(X_train, y_train, size=40000)
 
-    squeezer = Squeezer(columns, rows, stddev_horizontal_scale_coef=0.10, stddev_vertical_scale_coef=0.10)
+    squeezer = Squeezer(columns, rows, stddev_horizontal_scale_coef=0.05, stddev_vertical_scale_coef=0.05)
     X_train, y_train, _ = squeezer(X_train, y_train, size=60000)
 
     # flipper = Flipper()
@@ -426,16 +471,18 @@ if __name__ == "__main__":
     dense_keep_prob = tf.placeholder(tf.float32)
     conv_keep_prob = tf.placeholder(tf.float32)
 
-    logits = build_model2(x, num_of_classes=num_classes, dense_keep_prob=dense_keep_prob, conv_keep_prob=conv_keep_prob)
+    logits = build_model3(x, num_of_classes=num_classes, dense_keep_prob=dense_keep_prob, conv_keep_prob=conv_keep_prob)
     cross_entropy = tf.losses.softmax_cross_entropy(onehot_labels=y, logits=logits, weights=w)
     mean_loss = tf.reduce_mean(cross_entropy)
-    optimizer = tf.train.AdamOptimizer()
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
     training = optimizer.minimize(mean_loss)
 
     correct_prediction = tf.equal(tf.argmax(logits, axis=1), tf.argmax(y, axis=1))
     accuracy_operation = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     train_class_weights = get_class_percents(y_train, keys)
+    train_class_weights = np.sqrt(train_class_weights)
     valid_class_weights = sign_names.valid_percents
+    valid_class_weights = np.sqrt(valid_class_weights)
 
     train(X_train,
           y_train,
