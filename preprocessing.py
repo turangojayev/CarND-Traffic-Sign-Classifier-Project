@@ -67,7 +67,6 @@ def plot(image):
     plt.imshow(squeezed, cmap='gray')
     plt.show()
 
-
     plt.imshow(cv2.flip(equalized, 1))
     # plt.show()
 
@@ -89,7 +88,7 @@ def plot(image):
 # plt.imshow(normalized, cmap='gray')
 # plt.show()
 
-plot(X_train[28129])
+# plot(X_train[28129])
 
 
 # plot(X_train[27418])
@@ -110,9 +109,9 @@ def pca_aug(img):
     from numpy import cov
 
     reshaped = img.reshape(3, -1)
-    reshaped = (reshaped - np.mean(reshaped, axis=0)) / np.std(reshaped, axis=0)
-    # reshaped = (reshaped - 128) / 128
-    plt.imshow(reshaped.reshape(32, 32, 3))
+    # reshaped = (reshaped - np.mean(reshaped, axis=0)) / np.std(reshaped, axis=0)
+    reshaped = (reshaped - 128) / 128
+    plt.imshow(reshaped.reshape(-1, 32, 32, 3)[0])
     plt.show()
     # values, vectors = eigh(cov(reshaped))
     values, vectors = eig(cov(reshaped))
@@ -128,6 +127,45 @@ def pca_aug(img):
     plt.show()
     print(perturb)
 
+
+def pca_aug2(images):
+    from numpy import cov
+    idx = 28129
+    plt.imshow(images[idx])
+    plt.show()
+
+    plt.imshow(grayscale(images[idx]), cmap='gray')
+    plt.show()
+
+    reshaped = images.reshape(3, -1)
+
+    reshaped = (reshaped - np.mean(reshaped, axis=1)[:, None]) / np.std(reshaped, axis=1)[:, None]
+    # reshaped = (reshaped-128)/128
+
+    plt.imshow(reshaped.reshape(-1, 32, 32, 3)[idx])
+    plt.show()
+    # values, vectors = eigh(cov(reshaped))
+    values, vectors = eig(cov(reshaped))
+    print(values, vectors)
+
+    pca = np.sqrt(values) * vectors
+    perturb = (pca * np.random.randn(3) * 0.1).sum(axis=1)
+    print(perturb)
+    result = reshaped + perturb[:, None]
+    print(result)
+
+    result[result > 1.0] = 1.0
+    result[result < 0.0] = 0.0
+    plt.imshow(result.reshape(-1, 32, 32, 3)[idx])
+    plt.show()
+
+    plt.imshow(grayscale(np.ndarray.astype(result.reshape(-1, 32, 32, 3)[idx] * 255, dtype=np.uint8)),
+               cmap='gray')
+    plt.show()
+    print(perturb)
+
+
+pca_aug2(X_train)
 # pca_aug(X_train[0])
 # pca_aug(X_train[28129])
 # pca_aug(X_train[27418])
