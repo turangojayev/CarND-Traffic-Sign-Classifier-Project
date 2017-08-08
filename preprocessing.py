@@ -24,7 +24,7 @@ POINTS2 = np.float32([[columns / 4, rows / 4], [columns / 4, 3 * rows / 4], [3 *
 SQUEEZE = cv2.getAffineTransform(POINTS1, POINTS2)
 
 # Contrast Limited Adaptive Histogram Equalization
-CLAHE = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(5, 5))
+CLAHE = cv2.createCLAHE(clipLimit=10.0, tileGridSize=(7, 7))
 
 
 def squeeze_from_sides(image):
@@ -165,7 +165,11 @@ def pca_aug2(images):
     print(perturb)
 
 
-pca_aug2(X_train)
+
+
+
+gcn(X_train[11121])
+# pca_aug2(X_train)
 # pca_aug(X_train[0])
 # pca_aug(X_train[28129])
 # pca_aug(X_train[27418])

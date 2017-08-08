@@ -11,7 +11,7 @@ import os
 import pandas as pd
 from sklearn.utils import shuffle
 
-EPOCHS = 200
+EPOCHS = 60
 BATCH_SIZE = 256
 np.random.seed(12345)
 
@@ -73,8 +73,12 @@ class ConvolutionalLayer:
                  input_channels,
                  filters,
                  strides=None,
+                 mean=0,
+                 stddev=0.1,
                  activation=tf.nn.relu,
                  padding='VALID'):
+        # self._filters = tf.Variable(
+        #     tf.random_normal(shape=[*kernel_size, input_channels, filters], mean=mean, stddev=stddev))
         self._filters = tf.get_variable("conv-{}-{}".format(input_channels, filters),
                                         shape=[*kernel_size, input_channels, filters],
                                         initializer=tf.contrib.layers.xavier_initializer())
@@ -104,7 +108,11 @@ class Dense:
     def __init__(self,
                  output_size,
                  input_size,
+                 mean=0,
+                 stddev=0.1,
                  activation=tf.nn.relu):
+        # self._weights = tf.Variable(tf.truncated_normal(shape=[input_size, output_size], mean=mean, stddev=stddev))
+        # self._weights = tf.Variable(tf.contrib.layers.xavier(shape=[input_size, output_size], mean=mean, stddev=stddev))
         self._weights = tf.get_variable("weights{}-{}".format(input_size, output_size),
                                         shape=[input_size, output_size],
                                         initializer=tf.contrib.layers.xavier_initializer())
@@ -181,9 +189,9 @@ def build_model3(x, num_of_classes, dense_keep_prob, conv_keep_prob):
     dense3_out_size = 86
     input_channels = int(x.shape[3])
 
-    conv1 = ConvolutionalLayer(kernel_size=[5, 5], input_channels=input_channels, filters=l1_depth)
+    conv1 = ConvolutionalLayer(kernel_size=[5, 5], input_channels=input_channels, filters=l1_depth, mean=0, stddev=0.1)
     l1_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
-    conv2 = ConvolutionalLayer(kernel_size=[3, 3], input_channels=l1_depth, filters=l2_depth)
+    conv2 = ConvolutionalLayer(kernel_size=[3, 3], input_channels=l1_depth, filters=l2_depth, mean=0, stddev=0.1)
     l2_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
 
     conv1_out = conv1(x)
@@ -198,7 +206,7 @@ def build_model3(x, num_of_classes, dense_keep_prob, conv_keep_prob):
     # l1_flattened = tf.contrib.layers.flatten(l1_maxpool(l1_maxout))
     # concatenated = tf.concat([flattened, l1_flattened], axis=1)
 
-    dense1 = Dense(dense1_out_size, int(flattened.shape[1]))
+    dense1 = Dense(dense1_out_size, int(flattened.shape[1]), mean=0, stddev=0.1)
     dense1_out = dense1(flattened)
     dense1_out = tf.nn.dropout(dense1_out, dense_keep_prob)
 
@@ -213,7 +221,7 @@ def build_model3(x, num_of_classes, dense_keep_prob, conv_keep_prob):
     # dense3 = Dense(dense3_out_size, dense2_out_size, mean=0, stddev=0.1)
     # dense3_out = dense3(dense2_out)
 
-    dense4 = Dense(num_of_classes, dense1_out_size)
+    dense4 = Dense(num_of_classes, dense1_out_size, mean=0, stddev=0.1)
     dense4_out = dense4(dense1_out)
 
     print(conv1_out.shape)
@@ -240,11 +248,11 @@ def build_model4(x, num_of_classes, dense_keep_prob, conv_keep_prob):
     dense3_out_size = 86
     input_channels = int(x.shape[3])
 
-    conv1 = ConvolutionalLayer(kernel_size=[7, 7], input_channels=input_channels, filters=l1_depth)
+    conv1 = ConvolutionalLayer(kernel_size=[7, 7], input_channels=input_channels, filters=l1_depth, mean=0, stddev=0.1)
     l1_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
-    conv2 = ConvolutionalLayer(kernel_size=[4, 4], input_channels=l1_depth, filters=l2_depth)
+    conv2 = ConvolutionalLayer(kernel_size=[4, 4], input_channels=l1_depth, filters=l2_depth, mean=0, stddev=0.1)
     l2_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
-    conv3 = ConvolutionalLayer(kernel_size=[2, 2], input_channels=l2_depth, filters=l3_depth)
+    conv3 = ConvolutionalLayer(kernel_size=[2, 2], input_channels=l2_depth, filters=l3_depth, mean=0, stddev=0.1)
     l3_maxpool = MaxPool(kernel_size=[2, 2], strides=[2, 2])
 
     conv1_out = conv1(x)
@@ -265,11 +273,11 @@ def build_model4(x, num_of_classes, dense_keep_prob, conv_keep_prob):
     # l1_flattened = tf.contrib.layers.flatten(l1_maxpool(l1_maxout))
     # concatenated = tf.concat([flattened, l1_flattened], axis=1)
 
-    dense1 = Dense(dense1_out_size, int(flattened.shape[1]))
+    dense1 = Dense(dense1_out_size, int(flattened.shape[1]), mean=0, stddev=0.1)
     dense1_out = dense1(flattened)
     dense1_out = tf.nn.dropout(dense1_out, dense_keep_prob)
 
-    output = Dense(num_of_classes, dense1_out_size)
+    output = Dense(num_of_classes, dense1_out_size, mean=0, stddev=0.1)
     output_out = output(dense1_out)
 
     print(conv1_out.shape)
@@ -408,8 +416,6 @@ def train(X_train,
             print(
                 "Epoch {} train loss={:.3f}, acc.={:.3f}\tvalid loss = {:.3f}, acc. = {:.3f}".format(
                     i + 1, train_loss, train_accuracy, validation_loss, validation_accuracy))
-            test_accuracy = evaluate(X_test, y_test, accuracy)
-            print('test_accuracy', test_accuracy)
 
             if early_stopper.should_stop(validation_accuracy):
                 break
@@ -448,47 +454,21 @@ if __name__ == "__main__":
     # X_valid = 255- X_valid
     # X_test = 255 - X_test
 
+    contraster = ContrastNormalization()
+    X_train, y_train, _ = contraster(X_train, y_train, size=60000)
+
     # equalizer = HistogramEqualizer()
     # X_train, y_train, _ = equalizer(X_train, y_train, 30000)
-    #
-    # # rotator = Rotator(columns=columns, rows=rows, stddev_rotation_angle=10)
-    # rotator = Rotator(columns=columns, rows=rows, prob_distr=partial(np.random.uniform, low=-20, high=20))
-    # X_train, y_train, _ = rotator(X_train, y_train, size=40000)
-    #
-    # # squeezer = Squeezer(columns, rows, stddev_horizontal_scale_coef=0.05, stddev_vertical_scale_coef=0.05)
-    # squeezer = Squeezer(columns, rows, prob_distr=partial(np.random.uniform, low=-0.1, high=0.1))
-    # X_train, y_train, _ = squeezer(X_train, y_train, size=60000)
-    #
-    #
-    # contraster = ContrastNormalization()
-    # X_train, y_train, _ = contraster(X_train, y_train, size=60000)
-
-
-    equalizer = HistogramEqualizer()
-    X_train, y_train, _ = equalizer(X_train, y_train, 34799)
-    X_train = X_train[34799:]
-    y_train = y_train[34799:]
-
-    X_valid, y_valid, _ = equalizer(X_valid, y_valid, 4410)
-    X_valid = X_valid[4410:]
-    y_valid = y_valid[4410:]
-
-    X_test, y_test, _ = equalizer(X_test, y_test, 12630)
-    X_test = X_test[12630:]
-    y_test = y_test[12630:]
-
 
     # rotator = Rotator(columns=columns, rows=rows, stddev_rotation_angle=10)
     rotator = Rotator(columns=columns, rows=rows, prob_distr=partial(np.random.uniform, low=-20, high=20))
-    X_train, y_train, _ = rotator(X_train, y_train, size=30000)
+    X_train, y_train, _ = rotator(X_train, y_train, size=40000)
 
     # squeezer = Squeezer(columns, rows, stddev_horizontal_scale_coef=0.05, stddev_vertical_scale_coef=0.05)
     squeezer = Squeezer(columns, rows, prob_distr=partial(np.random.uniform, low=-0.1, high=0.1))
     X_train, y_train, _ = squeezer(X_train, y_train, size=60000)
 
 
-    # contraster = ContrastNormalization()
-    # X_train, y_train, _ = contraster(X_train, y_train, size=60000)
 
 
 
@@ -524,7 +504,7 @@ if __name__ == "__main__":
           X_valid,
           y_valid,
           accuracy_operation,
-          train_class_weights=None,
-          valid_class_weights=None,
+          train_class_weights,
+          valid_class_weights,
           dense_dropout=dense_dropout,
           conv_dropout=conv_dropout)

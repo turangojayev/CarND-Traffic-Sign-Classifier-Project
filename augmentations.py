@@ -32,12 +32,13 @@ class Augmentation:
 
 
 class Rotator(Augmentation):
-    def __init__(self, columns, rows, stddev_rotation_angle=15, **kwargs):
+    def __init__(self, columns, rows, prob_distr, **kwargs):
         super(Rotator, self).__init__(partial(rotate, columns=columns, rows=rows), **kwargs)
-        self._stddev_rotation_angle = stddev_rotation_angle
+        self._prob_distr = prob_distr
 
     def _get_augmentation_params(self, data, size):
-        degrees = np.random.normal(scale=self._stddev_rotation_angle, size=size)
+        # degrees = np.random.normal(scale=self._stddev_rotation_angle, size=size)
+        degrees = self._prob_distr(size=size)
         return zip(data, degrees)
 
 
@@ -50,10 +51,9 @@ class HistogramEqualizer(Augmentation):
 
 
 class Squeezer(Augmentation):
-    def __init__(self, columns, rows, stddev_horizontal_scale_coef=0.12, stddev_vertical_scale_coef=0.12, **kwargs):
+    def __init__(self, columns, rows, prob_distr, **kwargs):
         super(Squeezer, self).__init__(partial(squeeze_from_sides, columns=columns, rows=rows), **kwargs)
-        self._horizontal_scale_stddev = stddev_horizontal_scale_coef
-        self._vertical_scale_stddev = stddev_vertical_scale_coef
+        self._prob_distr = prob_distr
 
     def _get_augmentation_params(self, data, size):
         _, columns, rows, _ = data.shape
@@ -61,36 +61,44 @@ class Squeezer(Augmentation):
         def get_transformation_matrix():
             # initial three points
             points1 = np.float32([[0, 0], [0, rows], [columns, rows]])
-            # points1 = np.float32([[columns / 2, 0], [0, rows / 2], [columns, rows / 2]])
 
             # the points after the transformation
             # don't take absolute value, to allow "zoom in"(perspective) type of transformations
             points2 = np.float32(
                 [
                     [
-                        columns * np.random.normal(scale=self._horizontal_scale_stddev, size=1)[0],
-                        rows * np.random.normal(scale=self._vertical_scale_stddev, size=1)[0]
+                        columns * self._prob_distr(size=1)[0],
+                        rows * self._prob_distr(size=1)[0]
                     ],
                     [
-                        columns * np.random.normal(scale=self._horizontal_scale_stddev, size=1)[0],
-                        rows * (1 - np.random.normal(scale=self._vertical_scale_stddev, size=1)[0])
+                        columns * self._prob_distr(size=1)[0],
+                        rows * (1 - self._prob_distr(size=1)[0])
                     ],
                     [
-                        columns * (1 - np.random.normal(scale=self._horizontal_scale_stddev, size=1)[0]),
-                        rows * (1 - np.random.normal(scale=self._vertical_scale_stddev, size=1)[0])
+                        columns * (1 - self._prob_distr(size=1)[0]),
+                        rows * (1 - self._prob_distr(size=1)[0])
                     ]
                 ])
-            # points2 = np.float32(
-            #     [
-            #         [columns / 2, 0],
-            #         [columns * np.abs(np.random.normal(scale=self._scale_stddev, size=1))[0], rows / 2],
-            #         [columns * 1 - np.abs(np.random.normal(scale=self._scale_stddev, size=1))[0], rows / 2]
-            #     ])
 
             return cv2.getAffineTransform(points1, points2)
 
         transformation_matrices = [get_transformation_matrix() for _ in range(size)]
         return zip(data, transformation_matrices)
+
+
+def gcn(img):
+    mean = np.mean(img)
+    lambbda = 10
+    denominator = np.sqrt(lambbda + np.var(img))
+    return (img - mean) / max(0, denominator)
+
+
+class ContrastNormalization(Augmentation):
+    def __init__(self):
+        super(ContrastNormalization, self).__init__(gcn)
+
+    def _get_augmentation_params(self, data, size):
+        return data
 
 
 class Flipper(Augmentation):
