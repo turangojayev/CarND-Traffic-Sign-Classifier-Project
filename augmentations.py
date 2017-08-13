@@ -31,23 +31,26 @@ class Augmentation:
         pass
 
 
+def add_noise(image, prob_distr):
+    return image + prob_distr(size=image.shape)
+
+
+class NoiseAdder(Augmentation):
+    def __init__(self, prob_distr, **kwargs):
+        super(NoiseAdder, self).__init__(partial(add_noise, prob_distr=prob_distr), **kwargs)
+
+    def _get_augmentation_params(self, data, size):
+        return data
+
+
 class Rotator(Augmentation):
     def __init__(self, columns, rows, prob_distr, **kwargs):
         super(Rotator, self).__init__(partial(rotate, columns=columns, rows=rows), **kwargs)
         self._prob_distr = prob_distr
 
     def _get_augmentation_params(self, data, size):
-        # degrees = np.random.normal(scale=self._stddev_rotation_angle, size=size)
         degrees = self._prob_distr(size=size)
         return zip(data, degrees)
-
-
-class HistogramEqualizer(Augmentation):
-    def __init__(self):
-        super(HistogramEqualizer, self).__init__(equalize_histogram)
-
-    def _get_augmentation_params(self, data, size):
-        return data
 
 
 class Squeezer(Augmentation):
@@ -90,15 +93,7 @@ def gcn(img):
     mean = np.mean(img)
     lambbda = 10
     denominator = np.sqrt(lambbda + np.var(img))
-    return (img - mean) / max(0, denominator)
-
-
-class ContrastNormalization(Augmentation):
-    def __init__(self):
-        super(ContrastNormalization, self).__init__(gcn)
-
-    def _get_augmentation_params(self, data, size):
-        return data
+    return (img - mean) / max(0.0001, denominator)
 
 
 class Flipper(Augmentation):
@@ -124,6 +119,38 @@ def flip(image):
 
 def squeeze_from_sides(image, transformation_matrix, columns, rows):
     return cv2.warpAffine(image, transformation_matrix, (columns, rows))
+
+
+class Preprocessing:
+    def __init__(self, operation):
+        self._operation = operation
+
+    def __call__(self, X):
+        preprocessed = list(map(self._operation, X))
+        return np.array(preprocessed).reshape(-1, *X.shape[1:])
+
+
+class HistogramEqualizer(Preprocessing):
+    def __init__(self):
+        super(HistogramEqualizer, self).__init__(equalize_histogram)
+
+
+class ContrastNormalization(Preprocessing):
+    def __init__(self):
+        super(ContrastNormalization, self).__init__(gcn)
+
+
+class StandardScaling(Preprocessing):
+    def __init__(self):
+        self._fit = False
+
+    def __call__(self, X):
+        if not self._fit:
+            self._mean = np.mean(X, axis=0)
+            self._std = np.std(X, axis=0)
+            self._fit = True
+
+        return (X - self._mean) / self._std
 
 
 def equalize_histogram(image):
