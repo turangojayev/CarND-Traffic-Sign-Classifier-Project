@@ -66,19 +66,19 @@ def preprocess(data, preprocessor):
     return X, y
 
 
+def get_class_percents(y, keys):
+    classes, counts = np.unique(y, return_counts=True)
+    cls2percent = {cls: percent for cls, percent in zip(classes, 100 * counts / sum(counts))}
+    return np.array([cls2percent[cls] for cls in keys])
+
+
 if __name__ == "__main__":
     seed = 43512
     np.random.seed(seed)
     tf.set_random_seed(seed)
     directory = 'data'
-
-
-    def get_class_percents(y, keys):
-        classes, counts = np.unique(y, return_counts=True)
-        cls2percent = {cls: percent for cls, percent in zip(classes, 100 * counts / sum(counts))}
-        return np.array([cls2percent[cls] for cls in keys])
-
-
+    dense_dropout = 0.7
+    conv_dropout = 0.7
     test_probabilities_over_runs = []
     test_accuracies = 0
     # preprocessings = [HistogramEqualizer, ContrastNormalization]
@@ -104,9 +104,6 @@ if __name__ == "__main__":
             sign_names = sign_names.assign(train_percents=get_class_percents(y_train, keys))
             sign_names = sign_names.assign(valid_percents=get_class_percents(y_valid, keys))
             sign_names = sign_names.assign(test_percents=get_class_percents(y_test, keys))
-
-            dense_dropout = 0.7
-            conv_dropout = 0.7
 
             rotator = Rotator(columns=columns, rows=rows, prob_distr=partial(np.random.uniform, low=-20, high=20))
             X_train, y_train, _ = rotator(X_train, y_train, len(X_train))
