@@ -44,8 +44,8 @@ class NoiseAdder(Augmentation):
 
 
 class Rotator(Augmentation):
-    def __init__(self, columns, rows, prob_distr, **kwargs):
-        super(Rotator, self).__init__(partial(rotate, columns=columns, rows=rows), **kwargs)
+    def __init__(self, prob_distr, **kwargs):
+        super(Rotator, self).__init__(rotate, **kwargs)
         self._prob_distr = prob_distr
 
     def _get_augmentation_params(self, data, size):
@@ -54,8 +54,8 @@ class Rotator(Augmentation):
 
 
 class Squeezer(Augmentation):
-    def __init__(self, columns, rows, prob_distr, **kwargs):
-        super(Squeezer, self).__init__(partial(squeeze_from_sides, columns=columns, rows=rows), **kwargs)
+    def __init__(self, prob_distr, **kwargs):
+        super(Squeezer, self).__init__(squeeze_from_sides, **kwargs)
         self._prob_distr = prob_distr
 
     def _get_augmentation_params(self, data, size):
@@ -96,28 +96,8 @@ def gcn(img):
     return (img - mean) / max(0.0001, denominator)
 
 
-class Flipper(Augmentation):
-    def __init__(self):
-        super(Flipper, self).__init__(flip)
-
-    def _get_augmentation_params(self, data, size):
-        return data
-
-
-class Translator(Augmentation):
-    def __init__(self):
-        super(Translator, self).__init__()
-
-    def _get_augmentation_params(self, data, size):
-        # TODO:implement
-        pass
-
-
-def flip(image):
-    return cv2.flip(image, 1)
-
-
-def squeeze_from_sides(image, transformation_matrix, columns, rows):
+def squeeze_from_sides(image, transformation_matrix):
+    rows, columns, *_ = image.shape
     return cv2.warpAffine(image, transformation_matrix, (columns, rows))
 
 
@@ -140,8 +120,9 @@ class ContrastNormalization(Preprocessing):
         super(ContrastNormalization, self).__init__(gcn)
 
 
-class StandardScaling(Preprocessing):
+class StandardScaling(ContrastNormalization):
     def __init__(self):
+        super(StandardScaling, self).__init__()
         self._fit = False
 
     def __call__(self, X):
@@ -150,13 +131,15 @@ class StandardScaling(Preprocessing):
             self._std = np.std(X, axis=0)
             self._fit = True
 
-        return (X - self._mean) / self._std
+        X = (X - self._mean) / self._std
+        return super(StandardScaling, self).__call__(X)
 
 
 def equalize_histogram(image):
     return CLAHE.apply(image)
 
 
-def rotate(image, degree, columns, rows):
+def rotate(image, degree):
+    rows, columns, *_ = image.shape
     rotation_matrix = cv2.getRotationMatrix2D((columns / 2, rows / 2), degree, 1)
     return cv2.warpAffine(image, rotation_matrix, (columns, rows))

@@ -1,9 +1,11 @@
 import os
+import math
 from operator import itemgetter
 
 import numpy as np
 import tensorflow as tf
 from sklearn.utils import shuffle
+from tqdm import tqdm
 
 
 def conv2d(input,
@@ -11,9 +13,11 @@ def conv2d(input,
            num_of_filters,
            strides=None,
            activation=tf.nn.relu,
-           padding='VALID'):
+           padding='VALID',
+           name=None):
     input_channels = int(input.shape[3])
-    name = "conv-{}-{}".format(input_channels, num_of_filters)
+    if name is None:
+        name = "conv-{}-{}".format(input_channels, num_of_filters)
     filters = tf.get_variable(name,
                               shape=[*kernel_size, input_channels, num_of_filters],
                               initializer=tf.contrib.layers.xavier_initializer())
@@ -26,19 +30,27 @@ def conv2d(input,
     return activation(conv)
 
 
-def maxpool(input, kernel_size, strides):
-    return tf.nn.max_pool(input, ksize=[1, *kernel_size, 1], strides=[1, *strides, 1], padding='VALID')
+def maxpool(input, kernel_size, strides, padding='VALID'):
+    return tf.nn.max_pool(input, ksize=[1, *kernel_size, 1], strides=[1, *strides, 1], padding=padding)
 
 
-def dense(input, output_size, activation=tf.nn.relu):
+def avgpool(input, kernel_size, strides, padding='VALID'):
+    return tf.nn.avg_pool(input, ksize=[1, *kernel_size, 1], strides=[1, *strides, 1], padding=padding)
+
+
+def dense(input, output_size, use_relu=True, name=None):
     input_size = int(input.shape[1])
-    name = "weights{}-{}".format(input_size, output_size)
+    if name is None:
+        name = "weights{}-{}".format(input_size, output_size)
     weights = tf.get_variable(name,
                               shape=[input_size, output_size],
                               initializer=tf.contrib.layers.xavier_initializer())
 
     bias = tf.Variable(tf.zeros(output_size))
-    return activation(tf.add(tf.matmul(input, weights), bias))
+    result = tf.add(tf.matmul(input, weights), bias)
+    if use_relu:
+        result = tf.nn.relu(result)
+    return result
 
 
 def _iterate_over_batches(input,
@@ -52,11 +64,15 @@ def _iterate_over_batches(input,
                           dense_keep_probability=1.,
                           conv_keep_probability=1.,
                           batch_size=256):
-    num_examples = len(X_data)
     num_classes = np.unique(y_data).shape[0]
 
-    for offset in range(0, num_examples, batch_size):
-        batch_x, batch_y = X_data[offset:offset + batch_size], y_data[offset:offset + batch_size]
+    batch_count = int(math.ceil(len(X_data) / batch_size))
+    batches_pbar = tqdm(range(batch_count), unit='batches')
+
+    for batch in batches_pbar:
+        batch_start = batch * batch_size
+        batch_x, batch_y = X_data[batch_start:batch_start + batch_size], y_data[batch_start:batch_start + batch_size]
+
         batch_weights = np.ones(len(batch_x))
         if class_weights is not None:
             batch_weights *= class_weights[batch_y]
@@ -201,5 +217,3 @@ def _create_if_not_exists(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-# saver = tf.train.Saver()
-# early_stopper = EarlyStopper(saver, sess, which=min, patience=30, model_description='mirt')

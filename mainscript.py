@@ -105,10 +105,10 @@ if __name__ == "__main__":
             sign_names = sign_names.assign(valid_percents=get_class_percents(y_valid, keys))
             sign_names = sign_names.assign(test_percents=get_class_percents(y_test, keys))
 
-            rotator = Rotator(columns=columns, rows=rows, prob_distr=partial(np.random.uniform, low=-20, high=20))
+            rotator = Rotator(prob_distr=partial(np.random.uniform, low=-20, high=20))
             X_train, y_train, _ = rotator(X_train, y_train, len(X_train))
 
-            squeezer = Squeezer(columns, rows, prob_distr=partial(np.random.uniform, low=-0.1, high=0.1))
+            squeezer = Squeezer(prob_distr=partial(np.random.uniform, low=-0.1, high=0.1))
             X_train, y_train, _ = squeezer(X_train, y_train, len(X_train))
 
             # noise_adder = NoiseAdder(prob_distr=partial(np.random.normal, loc=0, scale=20))
