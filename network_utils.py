@@ -172,7 +172,7 @@ def train(session, input, output, weights, dense_keep, conv_keep, training,
 
 
 class EarlyStopper:
-    def __init__(self, saver, session, which=min, patience=5, model_description=None):
+    def __init__(self, saver, session, which=min, patience=5, model_description=None, best_only=True):
         self._saver = saver
         self._session = session
         self._method = which
@@ -181,6 +181,7 @@ class EarlyStopper:
         self._best_epoch = 0
         self._patience = patience
         self._best_path = None
+        self._best_only = best_only
 
         directory = os.path.join(os.getcwd(), 'models')
         _create_if_not_exists(directory)
@@ -194,17 +195,17 @@ class EarlyStopper:
         if self._last_value is None or self._last_value != self._method(value, self._last_value):
             self._last_value = value
             self._best_epoch = self._current_epoch
-            self._best_path = os.path.join('{}-{:.3f}-{}'.format(self._basename, value, self._current_epoch))
+
+            if self._best_only:
+                self._best_path = self._basename
+            else:
+                self._best_path = '{}-{:.3f}-{}'.format(self._basename, value, self._current_epoch)
+
             self._saver.save(self._session, self._best_path)
         elif self._current_epoch - self._best_epoch > self._patience:
             stop = True
         return stop
 
-    def load(self):
-        if self._best_path is not None:
-            self._saver.restore(self._session, self._best_path)
-        else:
-            raise ValueError('No path to the model to load, train first!')
 
 
 def _get_default_model_name():
