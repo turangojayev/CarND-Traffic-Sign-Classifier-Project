@@ -117,7 +117,9 @@ class HistogramEqualizer(Preprocessing):
 
 class ContrastNormalization(Preprocessing):
     def __init__(self):
-        super(ContrastNormalization, self).__init__(gcn)
+        # super(ContrastNormalization, self).__init__(gcn)
+        super(ContrastNormalization, self).__init__(contrast_normalization)
+
 
 
 class StandardScaling(ContrastNormalization):
@@ -143,3 +145,30 @@ def rotate(image, degree):
     rows, columns, *_ = image.shape
     rotation_matrix = cv2.getRotationMatrix2D((columns / 2, rows / 2), degree, 1)
     return cv2.warpAffine(image, rotation_matrix, (columns, rows))
+
+
+def makeGaussian(size, fwhm=2):
+    x = np.arange(0, size, 1, float)
+    y = x[:, np.newaxis]
+    x0 = y0 = size // 2
+    gaussian = np.exp(-4 * np.log(2) * ((x - x0) ** 2 + (y - y0) ** 2) / fwhm ** 2)
+    gaussian /= np.sum(gaussian)
+    return gaussian
+
+
+gaussian = makeGaussian(5, 3)
+
+
+def contrast_normalization(img):
+    img1 = img.reshape(*img.shape[:2])
+    subtractive_normalized = img1 - cv2.filter2D(img1, 3, gaussian)
+    image = subtractive_normalized ** 2
+    height, width, *_ = image.shape
+
+    output = np.sqrt(cv2.filter2D(image, 3, gaussian))
+    mean_sigma = np.mean(output)
+    indices = output < mean_sigma
+    output[indices] = mean_sigma
+
+    output = subtractive_normalized / output
+    return output
