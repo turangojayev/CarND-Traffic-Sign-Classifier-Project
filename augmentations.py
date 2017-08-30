@@ -117,7 +117,6 @@ class HistogramEqualizer(Preprocessing):
 
 class ContrastNormalization(Preprocessing):
     def __init__(self):
-        # super(ContrastNormalization, self).__init__(gcn)
         super(ContrastNormalization, self).__init__(contrast_normalization)
 
 

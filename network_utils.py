@@ -63,11 +63,15 @@ def _iterate_over_batches(input,
                           class_weights=None,
                           dense_keep_probability=1.,
                           conv_keep_probability=1.,
-                          batch_size=256):
+                          batch_size=256,
+                          progress_bar=False):
     num_classes = np.unique(y_data).shape[0]
 
     batch_count = int(math.ceil(len(X_data) / batch_size))
-    batches_pbar = tqdm(range(batch_count), unit='batches')
+    if progress_bar:
+        batches_pbar = tqdm(range(batch_count), unit='batches')
+    else:
+        batches_pbar = range(batch_count)
 
     for batch in batches_pbar:
         batch_start = batch * batch_size
