@@ -159,12 +159,12 @@ def train(session, input, output, weights, dense_keep, conv_keep, training,
 
             validation_accuracy = evaluate(input, output, weights,
                                            accuracy, dense_keep, conv_keep,
-                                           X_valid, y_valid, batch_size=2048)
+                                           X_valid, y_valid, batch_size=batch_size)
 
             validation_loss = evaluate(input, output, weights,
                                        loss, dense_keep, conv_keep,
                                        X_valid, y_valid,
-                                       class_weights=valid_class_weights, batch_size=2048)
+                                       class_weights=valid_class_weights, batch_size=batch_size)
 
             print(
                 "Epoch {} train loss={:.3f}, acc.={:.3f}\tvalid loss = {:.3f}, acc. = {:.3f}".format(

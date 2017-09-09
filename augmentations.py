@@ -64,9 +64,6 @@ class Squeezer(Augmentation):
         def get_transformation_matrix():
             # initial three points
             points1 = np.float32([[0, 0], [0, rows], [columns, rows]])
-
-            # the points after the transformation
-            # don't take absolute value, to allow "zoom in"(perspective) type of transformations
             points2 = np.float32(
                 [
                     [
@@ -146,11 +143,11 @@ def rotate(image, degree):
     return cv2.warpAffine(image, rotation_matrix, (columns, rows))
 
 
-def makeGaussian(size, fwhm=2):
+def makeGaussian(size, sigma=2):
     x = np.arange(0, size, 1, float)
     y = x[:, np.newaxis]
     x0 = y0 = size // 2
-    gaussian = np.exp(-4 * np.log(2) * ((x - x0) ** 2 + (y - y0) ** 2) / fwhm ** 2)
+    gaussian = np.exp(-4 * np.log(2) * ((x - x0) ** 2 + (y - y0) ** 2) / sigma ** 2)
     gaussian /= np.sum(gaussian)
     return gaussian
 
