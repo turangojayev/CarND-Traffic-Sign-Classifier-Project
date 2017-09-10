@@ -215,7 +215,7 @@ looks like in grayscale:
 
 
 To improve the contrast of the images I utilize two methods:
- * [Histogram equalization]([adaptive histogram equalization](http://docs.opencv.org/3.1.0/d5/daf/tutorial_py_histogram_equalization.html))
+ * [Adaptive histogram equalization](http://docs.opencv.org/3.1.0/d5/daf/tutorial_py_histogram_equalization.html)
  * [Local contrast normalization]((http://yann.lecun.com/exdb/publis/pdf/sermanet-ijcnn-11.pdf))
 
  
