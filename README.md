@@ -105,57 +105,104 @@ The goal in this project is to train a convolutional neural network with Tensorf
 
 German Traffic Sign dataset consists of three separate parts, namely training (34799 examples), validation (4410 examples) and test sets (12630 examples). Images are all in RGB and resized to the size of 32x32. In total, there are 43 distinct traffic signs.
 Here are 10 examples from each type:
+
 ![image1]
+
 ![image2]
+
 ![image3]
+
 ![image4]
+
 ![image5]
+
 ![image6]
+
 ![image7]
+
 ![image8]
+
 ![image9]
+
 ![image10]
+
 ![image11]
+
 ![image12]
+
 ![image13]
+
 ![image14]
+
 ![image15]
+
 ![image16]
+
 ![image17]
+
 ![image18]
+
 ![image19]
+
 ![image20]
+
 ![image21]
+
 ![image22]
+
 ![image23]
+
 ![image24]
+
 ![image25]
+
 ![image26]
+
 ![image27]
+
 ![image28]
+
 ![image29]
+
 ![image30]
+
 ![image31]
+
 ![image32]
+
 ![image33]
+
 ![image34]
+
 ![image35]
+
 ![image36]
+
 ![image37]
+
 ![image38]
+
 ![image39]
+
 ![image40]
+
 ![image41]
+
+
 ![image42]
+
 ![image43]
+
 Some of the images are dark, whereas the others are very light, 
  not mentioning the ones that are hazy and difficult also for human eye 
   to label them correctly. 
   
   The dataset is imbalanced and the class distribution in different sets are comparable:
+  
   ![table]
   
   Some of the darkest images in training data:
+  
   ![image44]
   
  **Preprocessing**
@@ -163,6 +210,7 @@ Some of the images are dark, whereas the others are very light,
 Since the traffic signs are distinct by their appearances, we can omit the color information and convert the images to 
 the grayscale. Conversion to grayscale makes dark images more distinguishable and also improved the classification results for me. Here is how the dark image set above
 looks like in grayscale:
+
 ![image45]
 
 
@@ -188,8 +236,11 @@ To improve the contrast of the images I utilize two methods:
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![formula4]
   
  As a result, dark and light regions change a little, but the edges of the images become clearer.
+ 
  ![image46]
+ 
  Another method to make contrast in images more visible is to use contrast limited adaptive histogram equalization, which spreads the intensities to a wider range, thus improving the contrast.
+ 
  ![image47]
 
 **Augmentations**
@@ -239,8 +290,9 @@ Since I use fairly simple architecture, I let the model run 5 times. I repeat th
  and histogram equalization), which results in 10 models. I average the output 
 probabilities of each model to make the final prediction. Accuracy reached on train and validation sets reaches 99% for each of the models. The accuracy 
 on test set ranges between 97.5-98.5% for the models and the average of the probabilities gives ~99% accuracy on test data.
+More detailed results for each class is below:
 
- precision    recall  f1-score   support
+             precision    recall  f1-score   support
 
           0       1.00      1.00      1.00        60
           1       0.99      1.00      1.00       720
@@ -285,9 +337,8 @@ on test set ranges between 97.5-98.5% for the models and the average of the prob
          40       0.99      0.97      0.98        90
          41       1.00      0.90      0.95        60
          42       1.00      1.00      1.00        90
-
-avg / total       0.99      0.99      0.99     12630
-
+   
+As we can see above, the data for approximately half of the classes are classified perfectly (recall and precision are 1.00). Overall classification accuracy is close to 99% percent, and recall for only one of the classes ("Pedestrians") is around the half of the images for that class.
 
 **Test a Model on New Images**
 
@@ -297,63 +348,131 @@ of the images have something in common in appearance with the signs in our datas
 predicted with high probability for those images, correspond to similarly looking signs, holds for almost in all cases.
 
 
-
+The first sign that I shot, was a dirty "End of speed zone 30 km/h" sign. Since the sign is not among classes in dataset, we can expect the probabilities to be low. Moreover, the road sign is dirty (what was the reason why I took it) and this should also influence the predicted results.
 
  ![image50]
+ 
+ It is difficult for a human eye (at least for me) to classify the resized image. Models will probably perform bad too. Predicted probabilities confirm the hypotheses above:
+ 
  ![image51]
+ 
  ![image52]
+ 
+ As we see, the highest probability is 0.223, meaning the average of the models is quite unsure of the sign.
+ We can view the whole distribution in the bar chart:
+ 
  ![image53]
  
+ Let's check the second image:
  
 ![image54]
+
+ This time the sign is dirty again, however, the "No entry" sign exist in our dataset and resized image resembles the ones in our dataset. We can expect one class being predicted with high probability. 
+
 ![image55]
+
 ![image56]
+
 ![image57]
   
+ Third image is also from our dataset ("No entry"), however, the color is completely different from the ones in dataset. There's only one sign with yellow color in the original data ("Priority road") and the models predict similar probability for these two classes ("No entry" and "Priority road"). Generally, the highest probability will be low. 
+  
 ![image58]
+
 ![image59]
+
 ![image60]
+
 ![image61]
 
+Fourth image ("End of zone 30 km/h") does not exist in the dataset either, yet the resized image is clearer this time in comparison to the first one. The sign by itself looks similar to speed limit signs (30, 80, 20) and "End of zone 80 km/h" sign. Some of those should appear among the top 5.
 
 ![image62]
+
 ![image63]
+
 ![image64]
+
 ![image65]
 
+Next image is of sign "Speed limit 130 km/h", which again, does not exist in original dataset. Visually similar ones are speed limit signs for 100, 120, 30, 20 80 km/h and they will most probably appear in the top 5. Once more, probabilities should be low.
+
 ![image66]
+
 ![image67]
+
 ![image68]
+
 ![image69]
 
+Let's plot the next image:
+
 ![image70]
+
+It is difficult to judge about this one, however, trunk of the body resembles "General caution" sign.
+
 ![image71]
+
 ![image72]
+
 ![image73]
 
+Priority road sign exist in our dataset and one can expect this image to be classified correctly.
 
 ![image74]
+
 ![image75]
+
 ![image76]
+
 ![image77]
 
+Now, some funny images that look like "No entry" sign. Some will be classified correctly and with more than 0.5 probability, but it won't get close to 0.9.
 
 ![image78]
+
 ![image79]
+
 ![image80]
+
 ![image81]
 
 ![image82]
+
 ![image83]
+
 ![image84]
+
 ![image85]
 
 
 ![image86]
+
 ![image87]
+
 ![image88]
+
 ![image89]
 
+As we can see, in general, results are good for test data, as well as for the new test images. 
+
+#Visualize the Neural Network's State with Test Images
+Usually the neural networks are considered as a black box. However, one can also plot the activations of different layers to see the intermediate results and have an idea what is going on inside neural network. For example, for the test image below
+
+![image54]
+
+here are how the outputs of the convolutional layers look like.
+
+1st convolutional layer
+
 ![image90]
+
+2nd convolutional layer
+
 ![image91]
+
+3rd convolutional layer
+
 ![image92]
+
+From the first and second plots, it is clear, that network can detect the horizontal line in the image of the sign.
