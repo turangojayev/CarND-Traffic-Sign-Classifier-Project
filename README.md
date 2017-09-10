@@ -216,7 +216,7 @@ looks like in grayscale:
 
 To improve the contrast of the images I utilize two methods:
  * [Adaptive histogram equalization](http://docs.opencv.org/3.1.0/d5/daf/tutorial_py_histogram_equalization.html)
- * [Local contrast normalization]((http://yann.lecun.com/exdb/publis/pdf/sermanet-ijcnn-11.pdf))
+ * [Local contrast normalization](http://yann.lecun.com/exdb/publis/pdf/sermanet-ijcnn-11.pdf)
 
  
  For local contrast normalization, first, (normalized) gaussian weighted sum of surrounding pixel intensities are subtracted from pixels.
